@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Seoul weather monitoring system that scrapes temperature data from AccuWeather and publishes it to an MQTT broker. The application runs continuously, collecting temperature data every 60 seconds and publishing structured JSON messages to the configured MQTT topic.
+This is a Seoul weather monitoring system that scrapes temperature data from AccuWeather and publishes it to an MQTT broker. The application uses a dual-interval system: fetching real temperature data every 60 seconds while publishing temperature variations to MQTT every 10 seconds, creating realistic temperature fluctuations for IoT simulation.
 
 ## Core Architecture
 
@@ -35,25 +35,28 @@ npm run dev
 All configuration is centralized in `src/config/app.config.js`:
 
 - **MQTT Settings**: Broker URL, topic, client ID, connection options
-- **Weather Monitoring**: Scraping interval (60s), target city, AccuWeather URL
+- **Weather Monitoring**: Real temperature fetching interval (60s), target city, AccuWeather URL
+- **MQTT Publishing**: Frequent publishing interval (10s) and temperature variation range (±0.1-0.9°C)
 - **HTTP Configuration**: User-Agent strings and headers for web scraping
 - **Temperature Parsing**: CSS selectors, regex patterns, and validation ranges for robust temperature extraction
 
 ## Data Flow
 
 1. Application starts and connects to MQTT broker (`broker.emqx.io`)
-2. Timer triggers temperature collection every 60 seconds
-3. Weather scraper fetches AccuWeather page and attempts parsing via multiple strategies
-4. Parsed temperature data is packaged with timestamp, city, and source metadata
-5. JSON message is published to MQTT topic `kiot/zenit/notebook/temp-sensor`
-6. Process continues indefinitely until graceful shutdown (SIGINT/SIGTERM)
+2. **Weather Fetching Timer** (60s interval): Scrapes AccuWeather and stores real temperature in `recentTemperature`
+3. **MQTT Publishing Timer** (10s interval): Generates temperature variation (±0.1-0.9°C) and publishes adjusted data
+4. Weather scraper uses multi-strategy parsing (CSS selectors, regex, JSON-LD)
+5. Enhanced JSON messages include both real and adjusted temperatures with metadata
+6. Messages published to MQTT topic `kiot/zenit/notebook/temp-sensor`
+7. Process continues with dual timers until graceful shutdown (SIGINT/SIGTERM)
 
 ## Error Handling Strategy
 
 The application implements comprehensive error handling:
-- **Web Scraping Failures**: Falls back to default temperature (22.2°C) when parsing fails
+- **Web Scraping Failures**: Falls back to default temperature (22.2°C), but MQTT publishing continues with cached temperature
+- **Temperature Caching**: Recent temperature persists between scraping failures, ensuring continuous MQTT publishing
 - **MQTT Connection Issues**: Automatic reconnection with exponential backoff (max 5 attempts)
-- **Graceful Shutdown**: Proper cleanup of intervals and MQTT connections on process signals
+- **Graceful Shutdown**: Proper cleanup of both weather fetching and MQTT publishing intervals
 
 ## Parsing Robustness
 
@@ -66,17 +69,24 @@ This multi-strategy approach ensures continued operation even if AccuWeather cha
 
 ## Message Format
 
-Published MQTT messages follow this JSON structure:
+Published MQTT messages follow this enhanced JSON structure:
 ```json
 {
-  "temperature": 23,
+  "temperature": 22.7,
+  "baseTemperature": 23.0,
+  "variation": -0.3,
   "timestamp": "2024-01-01T12:00:00.000Z",
   "city": "Seoul",
   "source": "accuweather-web",
-  "error": "optional error message",
-  "isDefault": true
+  "lastRealUpdate": "2024-01-01T11:59:00.000Z"
 }
 ```
+
+**Key Fields:**
+- `temperature`: Final temperature with variation applied (published value)
+- `baseTemperature`: Real temperature from AccuWeather scraping
+- `variation`: Applied temperature change (±0.1-0.9°C)
+- `lastRealUpdate`: Timestamp of last successful weather data fetch
 
 ## Dependencies
 
@@ -85,6 +95,13 @@ Published MQTT messages follow this JSON structure:
 - `mqtt`: MQTT client library for message publishing
 - `systeminformation`: System information utilities (currently unused)
 - `three`: 3D graphics library (currently unused - may be vestigial dependency)
+
+## Key Implementation Details
+
+- **Dual Timer System**: `weatherFetchIntervalId` (60s) and `mqttPublishIntervalId` (10s) run independently
+- **Temperature Caching**: `recentTemperature` stores last successful scraping result for continuous publishing
+- **Variation Generation**: `generateTemperatureVariation()` creates realistic ±0.1-0.9°C fluctuations
+- **Enhanced Logging**: Separate logging for real temperature updates vs MQTT publishing events
 
 ## Testing
 

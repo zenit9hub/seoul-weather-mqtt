@@ -5,6 +5,8 @@ AccuWeather에서 서울의 현재 기온을 웹 스크래핑하여 MQTT 브로�
 ## 기능
 
 - 서울 현재 기온 실시간 모니터링 (AccuWeather 웹 스크래핑)
+- 이중 인터벌 시스템: 날씨 조회와 MQTT 발행 분리
+- 온도 변화 시뮬레이션 (±0.1~0.9°C)
 - MQTT 브로커로 온도 데이터 발행
 - 자동 재연결 및 에러 처리
 - 우아한 종료 처리
@@ -15,7 +17,8 @@ AccuWeather에서 서울의 현재 기온을 웹 스크래핑하여 MQTT 브로�
 - **브로커**: `broker.emqx.io`
 - **토픽**: `kiot/zenit/notebook/temp-sensor`
 - **포트**: 1883 (기본 MQTT 포트)
-- **측정 간격**: 1분 (60초)
+- **날씨 조회 간격**: 1분 (60초) - 실제 온도 가져오기
+- **MQTT 발행 간격**: 10초 - 변화된 온도 데이터 발행
 
 ## 설치 및 실행
 
@@ -57,11 +60,29 @@ seoul-weather-mqtt/
 
 모든 설정은 `src/config/app.config.js` 파일에서 중앙 관리됩니다:
 
-### 측정 간격 변경
+### 날씨 조회 간격 변경
 ```javascript
 WEATHER: {
-  INTERVAL_MS: 60000, // 1분 (60초)
+  FETCH_INTERVAL_MS: 60000, // 1분 (60초) - 실제 온도 가져오기
   // ...
+}
+```
+
+### MQTT 발행 간격 변경
+```javascript
+MQTT_PUBLISHING: {
+  INTERVAL_MS: 10000, // 10초 - MQTT 발행 간격
+  // ...
+}
+```
+
+### 온도 변화 범위 변경
+```javascript
+MQTT_PUBLISHING: {
+  TEMPERATURE_VARIATION: {
+    MIN: 0.1, // 최소 온도 변화
+    MAX: 0.9  // 최대 온도 변화
+  }
 }
 ```
 
@@ -94,12 +115,24 @@ WEATHER: {
 
 ```json
 {
-  "temperature": 23,
+  "temperature": 22.7,
+  "baseTemperature": 23.0,
+  "variation": -0.3,
   "timestamp": "2024-01-01T12:00:00.000Z",
   "city": "Seoul",
-  "source": "accuweather-web"
+  "source": "accuweather-web",
+  "lastRealUpdate": "2024-01-01T11:59:00.000Z"
 }
 ```
+
+### 필드 설명
+- `temperature`: 변화가 적용된 온도 (실제 발행되는 온도)
+- `baseTemperature`: 웹 스크래핑으로 가져온 실제 온도
+- `variation`: 적용된 온도 변화값 (±0.1~0.9°C)
+- `timestamp`: 메시지 발행 시간
+- `city`: 도시명
+- `source`: 데이터 소스
+- `lastRealUpdate`: 마지막 실제 온도 업데이트 시간
 
 ## 종료
 
@@ -117,6 +150,7 @@ WEATHER: {
 - AccuWeather 웹사이트 구조 변경 시 `src/config/app.config.js`의 `PARSING.TEMP_SELECTORS`를 업데이트
 - 네트워크 연결 상태 확인
 - 파싱 실패 시 기본값(22.2°C)이 자동으로 사용됩니다
+- 실제 온도 조회 실패 시에도 최근 온도 기반으로 MQTT 발행은 계속됩니다
 
 ### MQTT 연결 실패
 
