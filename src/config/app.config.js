@@ -17,11 +17,20 @@ const APP_CONFIG = {
 
   // Weather Monitoring Configuration
   WEATHER: {
-    INTERVAL_MS: 60000, // 1분 (60초)
+    FETCH_INTERVAL_MS: 60000, // 1분 (60초) - 실제 온도 가져오기 간격
     CITY: 'Seoul',
     SOURCE: 'accuweather-web',
     URL: 'https://www.accuweather.com/en/kr/seoul/226081/weather-forecast/226081',
     DEFAULT_TEMPERATURE: 22.2 // 파싱 실패 시 사용할 기본 온도값
+  },
+
+  // MQTT Publishing Configuration
+  MQTT_PUBLISHING: {
+    INTERVAL_MS: 10000, // 10초 - MQTT 퍼블리싱 간격 (더 자주)
+    TEMPERATURE_VARIATION: {
+      MIN: 0.1, // 최소 온도 변화
+      MAX: 0.9  // 최대 온도 변화
+    }
   },
 
   // HTTP Request Configuration
