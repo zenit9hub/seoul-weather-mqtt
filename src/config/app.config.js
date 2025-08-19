@@ -2,16 +2,16 @@
 const APP_CONFIG = {
   // MQTT Configuration
   MQTT: {
-    BROKER_URL: 'mqtt://broker.emqx.io',
+    BROKER_URL: 'mqtt://test.mosquitto.org',
     BROKER_PORT: 1883,
     TOPIC: 'kiot/zenit/notebook/temp-sensor',
     CLIENT_ID: `seoul-weather-sensor-${Math.random().toString(16).slice(3)}`,
     CONNECTION_OPTIONS: {
       clean: true,
-      connectTimeout: 4000,
+      connectTimeout: 10000,
       username: '',
       password: '',
-      reconnectPeriod: 1000,
+      reconnectPeriod: 2000,
     }
   },
 
